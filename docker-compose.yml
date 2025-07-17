@@ -1,0 +1,88 @@
+version: '3'
+
+services:
+  zookeeper:
+    image: zookeeper:3.7
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+
+  hadoop:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-namenode
+    environment:
+      - CLUSTER_NAME=test
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    volumes:
+      - hadoop_namenode:/hadoop/dfs/name
+    networks:
+      - hadoop-net
+
+  datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop3.2.1-java8
+    container_name: hadoop-datanode
+    environment:
+      - CORE_CONF_fs_defaultFS=hdfs://hadoop-namenode:9000
+      - HDFS_CONF_dfs_replication=1
+    volumes:
+      - hadoop_datanode:/hadoop/dfs/data
+    depends_on:
+      - hadoop
+    networks:
+      - hadoop-net
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-metastore
+    environment:
+      - HIVE_METASTORE_DB_TYPE=postgres
+    depends_on:
+      - hadoop
+    networks:
+      - hadoop-net
+    ports:
+      - "9083:9083"
+
+  hive-server:
+    image: bde2020/hive:2.3.2
+    container_name: hive-server
+    depends_on:
+      - hive-metastore
+    networks:
+      - hadoop-net
+    ports:
+      - "10000:10000"
+
+  hbase:
+    image: harisekhon/hbase
+    container_name: hbase
+    environment:
+      - HBASE_MANAGES_ZK=false
+    depends_on:
+      - zookeeper
+    networks:
+      - hadoop-net
+    ports:
+      - "16010:16010"
+
+  oozie:
+    image: local-oozie
+    container_name: oozie
+    ports:
+      - "11000:11000"
+    depends_on:
+      - hadoop
+      - hive-server
+    networks:
+      - hadoop-net
+
+
+
+networks:
+  hadoop-net:
+
+volumes:
+  hadoop_namenode:
+  hadoop_datanode:
